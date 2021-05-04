@@ -1006,46 +1006,46 @@ http.listen(4000, function () {
 			});
 		});
 
-		app.get("/verifyEmail/:email/:verification_token", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.get("/verifyEmail/:email/:verification_token", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.get("/ResetPassword/:email/:reset_token", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.get("/ResetPassword/:email/:reset_token", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.get("/forgot-password", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-			result.render("forgot-password");
-		});
+		// app.get("/forgot-password", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// 	result.render("forgot-password");
+		// });
 
-		app.post("/sendRecoveryLink", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/sendRecoveryLink", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/changePassword", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/changePassword", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/sendMessage", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/sendMessage", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/connectSocket", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/connectSocket", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/toggleJoinGroup", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/toggleJoinGroup", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
 		app.post("/sendFriendRequest", function (request, result) {
 			var accessToken = request.fields.accessToken;
@@ -1246,5 +1246,132 @@ http.listen(4000, function () {
 			});
 		});
 
+		app.get("/inbox", function (request, result) {
+			result.render("inbox");
+		});
+
+		app.post("/getFriendsChat", function(request, result) {
+			var accessToken = request.fields.accessToken;
+			var _id = request.fields._id;
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+
+					var index = user.friends.findIndex(function(friend) {
+						return friend._id = _id;
+					});
+					var inbox = user.friends[index].inbox;
+
+					result.json({
+						"status": "success",
+						"message": "Record has been fetched",
+						"data": inbox
+					});
+				}
+			});
+		});
+
+		app.post("/sendMessage", function(request, result) {
+			var accessToken = request.fields.accessToken;
+			var _id = request.fields._id;
+			var message = request.fields.message;
+
+			console.log(accessToken + " " + _id + " " + message)
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+					var me = user;
+					database.collection("users").findOne({
+						"_id": ObjectId(_id)
+					}, function (error, user) {
+						if (user == null){
+							result.json({
+								"status": "error",
+								"message": "User does not exist."
+							});
+						} else {
+							database.collection("users").updateOne({
+								$and: [{
+									"_id": ObjectId(_id)
+								}, {
+									"friends._id": me._id
+								}]
+							}, {
+								$push: {
+									"friends.$.inbox": {
+										"_id": ObjectId(),
+										"message": message,
+										"from": me._id
+									}
+								}
+							}, function (error,data) {
+								database.collection("users").updateOne({
+									$and: [{
+										"_id": me._id
+									}, {
+										"friends._id": user_id
+									}]
+								}, {
+									$push: {
+										"friends.$.inbox": {
+											"_id": ObjectId(),
+											"message": message,
+											"from": me._id
+										}
+									}
+								}, function (error,data) {
+
+									socketIO.to(users[user._id]).emit("messageReceived", {
+										"message": message,
+										"from": me._id
+									});
+									result.json({
+										"status": "success",
+										"message": "Message has been send."
+									});
+									
+								});
+							});
+						}
+					});
+				}
+			});
+		});
+
+		app.post("/connectSocket", function(request, result) {
+			var accessToken = request.fields.accessToken;
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+					users[user._id] = socketID;
+					result.json({
+						"status": "success",
+						"message": "Socket has been connected.",
+					});
+				}
+			});
+		});
+		
 	});
 });
