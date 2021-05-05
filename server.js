@@ -1,5 +1,7 @@
 var express = require("express");
 var app = express();
+var cors = require("cors");
+app.use(cors());
 
 var formidable = require("express-formidable");
 app.use(formidable());
@@ -18,7 +20,22 @@ var accessTokenSecret = "myAccessTokenSecret1234567890";
 app.use("/public", express.static(__dirname + "/public"));
 app.set("view engine", "ejs");
 
-var socketIO = require("socket.io")(http);
+// var socketIO = require("socket.io")(http);
+
+socketIO = require("socket.io")(http, {
+  handlePreflightRequest: (req, res) => {
+    res.writeHead(200, {
+      "Access-Control-Allow-Origin": req.headers.origin,
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent, Host, Authorization",
+      "Access-Control-Allow-Credentials": true,
+      "Access-Control-Max-Age":86400
+    });
+    res.end();
+  }
+});
+
+
 var socketID = "";
 var users = [];
 
@@ -36,9 +53,9 @@ http.listen(4000, function () {
 		var database = client.db("my_social_network");
 		console.log("Database connected.");
 
-		app.get("/pro-versions", function (request, result) {
-			result.render("proVersions");
-		});
+		// app.get("/pro-versions", function (request, result) {
+		// 	result.render("proVersions");
+		// });
 
 		app.get("/profileViews", function (request, result) {
         	result.render("profileViews");
@@ -1006,46 +1023,46 @@ http.listen(4000, function () {
 			});
 		});
 
-		app.get("/verifyEmail/:email/:verification_token", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.get("/verifyEmail/:email/:verification_token", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.get("/ResetPassword/:email/:reset_token", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.get("/ResetPassword/:email/:reset_token", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.get("/forgot-password", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-			result.render("forgot-password");
-		});
+		// app.get("/forgot-password", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// 	result.render("forgot-password");
+		// });
 
-		app.post("/sendRecoveryLink", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/sendRecoveryLink", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/changePassword", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/changePassword", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/sendMessage", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/sendMessage", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/connectSocket", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/connectSocket", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
-		app.post("/toggleJoinGroup", function (request, result) {
-			// Paid version only
-			// Please read README.txt to get full version.
-		});
+		// app.post("/toggleJoinGroup", function (request, result) {
+		// 	// Paid version only
+		// 	// Please read README.txt to get full version.
+		// });
 
 		app.post("/sendFriendRequest", function (request, result) {
 			var accessToken = request.fields.accessToken;
@@ -1246,5 +1263,139 @@ http.listen(4000, function () {
 			});
 		});
 
+		app.get("/inbox", function (request, result) {
+			result.render("inbox");
+		});
+
+		app.post("/getFriendsChat", function(request, result) {
+			var accessToken = request.fields.accessToken;
+			var _id = request.fields._id;
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+
+					var index = user.friends.findIndex(function(friend) {
+						return friend._id == _id;
+					});
+					var inbox = user.friends[index].inbox;
+
+					console.log("Inbox feteched: <->" + inbox);
+
+					result.json({
+						"status": "success",
+						"message": "Record has been fetched",
+						"data": inbox
+					});
+				}
+			});
+		});
+
+		app.post("/sendMessage", function(request, result) {
+			var accessToken = request.fields.accessToken;
+			var _id = request.fields._id;
+			var message = request.fields.message;
+
+			console.log("Message sent: -->" + accessToken + " " + _id + " " + message)
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+					var me = user;
+					database.collection("users").findOne({
+						"_id": ObjectId(_id)
+					}, function (error, user) {
+						if (user == null){
+							result.json({
+								"status": "error",
+								"message": "User does not exist."
+							});
+						} else {
+							database.collection("users").updateOne({
+								$and: [{
+									"_id": ObjectId(_id)
+								}, {
+									"friends._id": me._id
+								}]
+							}, {
+								$push: {
+									"friends.$.inbox": {
+										"_id": ObjectId(),
+										"message": message,
+										"from": me._id
+									}
+								}
+							}, function (error,data) {
+								database.collection("users").updateOne({
+									$and: [{
+										"_id": me._id
+									}, {
+										"friends._id": user._id
+									}]
+								}, {
+									$push: {
+										"friends.$.inbox": {
+											"_id": ObjectId(),
+											"message": message,
+											"from": me._id
+										}
+									}
+								}, function (error,data) {
+
+									socketIO.to(users[user._id]).emit("messageReceived", {
+										"message": message,
+										"from": me._id
+									});
+									// console.log("MessageReceived senddfajsd;fjak;sd")
+									result.json({
+										"status": "success",
+										"message": "Message has been send."
+									});
+									
+								});
+							});
+						}
+					});
+				}
+			});
+		});
+
+		app.post("/connectSocket", function(request, result) {
+			var accessToken = request.fields.accessToken;
+
+			console.log("Inside SOcket.io")
+
+			database.collection("users").findOne({
+				"accessToken" : accessToken
+			}, function(error, user){
+				if(user == null){
+					result.json({
+						"status" : "error",
+						"message" : "USER HAS LOGGED OUT. LOG IN AGAIN"
+					});
+				}else{
+					users[user._id] = socketID;
+					result.json({
+						"status": "success",
+						"message": "Socket has been connected.",
+					});
+			console.log("        --------         ")
+
+				}
+			});
+		});
+		
 	});
 });
