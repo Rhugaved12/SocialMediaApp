@@ -1,5 +1,7 @@
 var express = require("express");
 var app = express();
+var cors = require("cors");
+app.use(cors());
 
 var formidable = require("express-formidable");
 app.use(formidable());
@@ -18,7 +20,22 @@ var accessTokenSecret = "myAccessTokenSecret1234567890";
 app.use("/public", express.static(__dirname + "/public"));
 app.set("view engine", "ejs");
 
-var socketIO = require("socket.io")(http);
+// var socketIO = require("socket.io")(http);
+
+socketIO = require("socket.io")(http, {
+  handlePreflightRequest: (req, res) => {
+    res.writeHead(200, {
+      "Access-Control-Allow-Origin": req.headers.origin,
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Referer, User-Agent, Host, Authorization",
+      "Access-Control-Allow-Credentials": true,
+      "Access-Control-Max-Age":86400
+    });
+    res.end();
+  }
+});
+
+
 var socketID = "";
 var users = [];
 
@@ -36,9 +53,9 @@ http.listen(4000, function () {
 		var database = client.db("my_social_network");
 		console.log("Database connected.");
 
-		app.get("/pro-versions", function (request, result) {
-			result.render("proVersions");
-		});
+		// app.get("/pro-versions", function (request, result) {
+		// 	result.render("proVersions");
+		// });
 
 		app.get("/profileViews", function (request, result) {
         	result.render("profileViews");
@@ -1265,9 +1282,11 @@ http.listen(4000, function () {
 				}else{
 
 					var index = user.friends.findIndex(function(friend) {
-						return friend._id = _id;
+						return friend._id == _id;
 					});
 					var inbox = user.friends[index].inbox;
+
+					console.log("Inbox feteched: <->" + inbox);
 
 					result.json({
 						"status": "success",
@@ -1283,7 +1302,7 @@ http.listen(4000, function () {
 			var _id = request.fields._id;
 			var message = request.fields.message;
 
-			console.log(accessToken + " " + _id + " " + message)
+			console.log("Message sent: -->" + accessToken + " " + _id + " " + message)
 
 			database.collection("users").findOne({
 				"accessToken" : accessToken
@@ -1323,7 +1342,7 @@ http.listen(4000, function () {
 									$and: [{
 										"_id": me._id
 									}, {
-										"friends._id": user_id
+										"friends._id": user._id
 									}]
 								}, {
 									$push: {
@@ -1339,6 +1358,7 @@ http.listen(4000, function () {
 										"message": message,
 										"from": me._id
 									});
+									// console.log("MessageReceived senddfajsd;fjak;sd")
 									result.json({
 										"status": "success",
 										"message": "Message has been send."
@@ -1355,6 +1375,8 @@ http.listen(4000, function () {
 		app.post("/connectSocket", function(request, result) {
 			var accessToken = request.fields.accessToken;
 
+			console.log("Inside SOcket.io")
+
 			database.collection("users").findOne({
 				"accessToken" : accessToken
 			}, function(error, user){
@@ -1369,6 +1391,8 @@ http.listen(4000, function () {
 						"status": "success",
 						"message": "Socket has been connected.",
 					});
+			console.log("        --------         ")
+
 				}
 			});
 		});
