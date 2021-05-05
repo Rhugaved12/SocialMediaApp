@@ -516,6 +516,9 @@ http.listen(4000, function () {
 
 					var ids = [];
 					ids.push(user._id);
+					for(var a = 0; a < user.friends.length; a++){
+						ids.push(user.friends[a]._id);
+					}
 
 					database.collection("posts")
 					.find({
